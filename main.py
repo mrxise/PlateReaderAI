@@ -1,59 +1,66 @@
 # AI that uses phone camera
 # when aimed at a licence plate it detects the color (black white yellow green)
-# read the digits
-# sepeartes the digits
-# recongnizes the wilaya
-# recongnizes the manfiucatring year
-# type of vehicle ()
+# read the digits ********************
+# sepeartes the digits *********************
+# recongnizes the wilaya ***************
+# recongnizes the manfiucatring year *******
+# type of vehicle () ***************
 # import os
 import re
-from tabulate import tabulate
 from bs4 import BeautifulSoup as bs
 import requests
 
 req = requests.get("https://en.wikipedia.org/wiki/Template:Algeria_Wilayas")
+req2 = requests.get(
+    "https://en.wikipedia.org/wiki/Vehicle_registration_plates_of_Algeria")
 # print(req)
 soup = bs(req.text, "html.parser")
+soup2 = bs(req2.text, "html.parser")
 
 theTable = soup.find_all("td")
-names = []
-nums = []
-
-for i, item in enumerate(theTable):
-    raw = item.get_text().strip()
-    if re.fullmatch(r"^[a-zA-Z'âéèï ]+$", raw):
-        names.append(raw)
-    if re.fullmatch(r'[1234567890]{1,2}', raw):
-        nums.append(int(raw))
-wilayas = list(zip(nums, names))
-wilayas.sort(key=lambda x: x[0])
-
-
-matricule = "1234510140"
-# for each in matricule:
+VehType = soup2.find("ol").get_text().replace('\n', '').split()
+names = [item.get_text().strip() for i, item in enumerate(
+    theTable) if re.fullmatch(r"^[a-zA-Z'âéèï ]+$", item.get_text().strip())]
+nums = [int(item.get_text().strip()) for i, item in enumerate(
+    theTable) if re.fullmatch(r'[1234567890]{1,2}', item.get_text().strip())]
+types = [veh for veh in enumerate(VehType, 1)]
+# wilayas = list(zip(nums, names))
+# wilayas.sort(key=lambda x: x[0])
+wilayas = sorted(zip(nums, names), key=lambda x: x[0])
 
 
 def slicer():
+
     while True:
         try:
-            matricule = input("Enter your matricule")
+            matricule = input("Enter your matricule: ")
 
             if not isinstance(matricule, str) or not re.fullmatch(r'\d{10}', matricule):
                 raise ValueError("Invalide license plate")
             ser = matricule[:5]
             ann = matricule[5:8]
             wil = matricule[8:]
-            return int(ser), int(ann), int(wil)
+
+            def decodeAnne(ann):
+                cheAn = ann[1:]
+                cheType = int(ann[:1])
+                for i, ty in types:
+                    if cheType == i:
+                        vType = cheType
+                    elif cheType == 0:
+                        print("Not registered yet")
+                    if int(cheAn) < 50:
+                        anneF = "20"+cheAn
+                    else:
+                        anneF = "19"+cheAn
+                return anneF, vType
+            an_, typeOf = decodeAnne(ann)
+            return int(ser), an_, typeOf, int(wil)-1
 
         except ValueError as e:
             print(e)
             continue
-        else:
-            break
 
 
-# 111 = Private 2011
-#  199 = Private 1999
-serial, anne, wil = slicer()
-print(
-    f"Your vehicle's serial number is {serial} and it was made in year {anne} and you are from {wilayas[wil-1]} ")
+serial, anne, typeOf, wil = slicer()
+print(serial, anne, types[typeOf][1], wilayas[wil][1])
